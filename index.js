@@ -42,11 +42,11 @@ controller.setupWebserver(process.env.PORT, function (err, webserver) {
 // }).startRTM();
 
 controller.hears(['help'], 'direct_message,direct_mention', function (bot, message) {
-  bot.reply(message, "I am your Scrum Bot :robot_face:
-    \nI can start scrum on your command & update the channel with file of statuses from every member who co-operates.
-    \nOnly authorized scrum masters in every channel can start scrum.
-    \nCurrently only <@ojas.gosar> is authorized to start scrum (in order to avoid spam in public channels).
-    \n`coming soon - you can automate the process of scrum`")
+  bot.reply(message, "I am your Scrum Bot :robot_face:" +
+    "\nI can start scrum on your command & update the channel with file of statuses from every member who co-operates." +
+    "\nOnly authorized scrum masters in every channel can start scrum." +
+    "\nCurrently only <@ojas.gosar> is authorized to start scrum (in order to avoid spam in public channels)." +
+    "\n`coming soon - you can automate the process of scrum`");
 });
 
 controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', 'stand-up'], 'direct_message,direct_mention,mention', function(bot, message) {
@@ -58,10 +58,10 @@ controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', '
         }, function(err, info) {
             if (err) {
                 bot.botkit.log('Failed to get channel info :(', err);
-                bot.reply(message,"I can't start scrum outside of a channel.
-                    \nIf you havent already invited me to a channel then try `/invite @scrum_bot`
-                    \nThen `@scrum_bot scrum` to start scrum
-                    \nYou can also type `@scrum_bot help` to find out what i can do for you..");
+                bot.reply(message,"I can't start scrum outside of a channel." +
+                    "\nIf you havent already invited me to a channel then try `/invite @scrum_bot`" +
+                    "\nThen `@scrum_bot scrum` to start scrum" +
+                    "\nYou can also type `@scrum_bot help` to find out what i can do for you..");
             }
             else {
                 var date = Moment().format("YYYYMMDD");
