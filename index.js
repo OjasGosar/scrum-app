@@ -53,8 +53,8 @@ controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', '
         }, function(err, info) {
             if (err) {
                 bot.botkit.log('Failed to get channel info :(', err);
-                bot.reply(message,"I can't start scrum outside of a channel." +
-                    "\nIf you havent already invited me to a channel then try `/invite @scrum_bot`" +
+                bot.reply(message,"I can't start scrum outside of a channel or in a private channel." +
+                    "\nIf you havent already invited me to a public channel then try `/invite @scrum_bot`" +
                     "\nThen `@scrum_bot scrum` to start scrum" +
                     "\nYou can also type `@scrum_bot help` to find out what i can do for you..");
             }
