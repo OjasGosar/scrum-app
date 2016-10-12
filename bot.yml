@@ -12,10 +12,15 @@ config:
 #   info: Client Secret for Slack App
 #   type: secret
 #   global: true
-- name: VERIFICATION_TOKEN
-  friendly_name: Verification Token
-  info: verification token for Slack App
-  type: secret
+- name: CHANNEL_SCRUM_TIMEOUT
+  friendly_name: channel_scrum_timeout
+  info: time for srcum to end after started in milliseconds in a channel
+  type: text
+  global: true
+- name: INDIVIDUAL_SCRUM_TIMEOUT
+  friendly_name: individual_scrum_timeout
+  info: time in milliseconds to retry if the user is not ready for scrum
+  type: text
   global: true
 slackscopes:
   - bot
