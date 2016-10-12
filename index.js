@@ -38,10 +38,12 @@ controller.setupWebserver(process.env.PORT, function (err, webserver) {
 
 controller.hears(['help'], 'direct_message,direct_mention', function (bot, message) {
   bot.reply(message, "I am your Scrum Bot :robot_face:" +
-    "\nI can start scrum on your command & update the channel with file of statuses from every member who co-operates." +
+    "\nI can start scrum on your command & update the channel by uploading a file of statuses from every member who co-operates." +
     "\nOnly authorized scrum masters in every channel can start scrum." +
     "\nCurrently only @ojas.gosar is authorized to start scrum (in order to avoid spam in public channels)." +
-    "\n`coming soon - you can automate the process of scrum`");
+    "\n`coming soon - you can automate the process of scrum`" +
+    "\nTry `@scrum_bot standup` - to start scrum" +
+    "\nTry `@scrum_bot status` - to find out scrum status for today");
 });
 
 controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', 'stand-up'], 'direct_message,direct_mention,mention', function(bot, message) {
@@ -113,52 +115,8 @@ controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', '
                 }
 
                 setTimeout(function() {
-                    controller.storage.users.all(function(err,userList) {
-
-                        if (err) {
-                            console.log("Error getting all users: ", err);
-                        }
-                        else {
-                            console.log("Success all users: ", JSON.stringify(userList));
-                            //var jsonUserList = JSON.stringify(userList);
-                            var status = "";
-                            
-                            for (user in userList) {
-                                console.log("userList[user].channels", userList[user].channels);
-                                for (userChannel in userList[user].channels) {
-                                    console.log("userList[user].channels[userChannel]:", userList[user].channels[userChannel]);
-                                    console.log("message.channel", message.channel);
-                                    if (userList[user].channels[userChannel].id == message.channel) {
-                                        for (scrumStatus in userList[user].channels[userChannel].scrumStatus) {
-                                            console.log("userList[user].channels[userChannel].scrumStatus:", userList[user].channels[userChannel].scrumStatus);
-                                            console.log("date:", date);
-                                            if (userList[user].channels[userChannel].scrumStatus[scrumStatus].id == date) {
-                                                console.log("found Match:");
-                                                status += userList[user].channels[userChannel].scrumStatus[scrumStatus].text;
-                                            }
-                                        }
-                                    }
-
-                                }
-                            }
-
-                            console.log("Final Status: ", status);
-                            bot.api.files.upload({
-                                content:((!status)? "No Status for Today" : status),
-                                filename: date+"Scrum-Status",
-                                channels: message.channel
-                            }, function(err,result) {
-                                if (err) {
-                                    console.log("Error uploading file", err);
-                                }
-                                else {
-                                    console.log("Result:",result);
-                                }
-
-                            });
-                        }
-                        
-                    });
+                    //get status & upload a file
+                    getStatusAndUpload(message, date);
                 }, process.env.CHANNEL_SCRUM_TIMEOUT);
             }
 
@@ -169,6 +127,60 @@ controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', '
     }
 });
 
+function getStatusAndUpload(message, date){
+    controller.storage.users.all(function(err,userList) {
+
+        if (err) {
+            console.log("Error getting all users: ", err);
+        }
+        else {
+            console.log("Success all users: ", JSON.stringify(userList));
+            //var jsonUserList = JSON.stringify(userList);
+            var status = "";
+            
+            for (user in userList) {
+                console.log("userList[user].channels", userList[user].channels);
+                for (userChannel in userList[user].channels) {
+                    console.log("userList[user].channels[userChannel]:", userList[user].channels[userChannel]);
+                    console.log("message.channel", message.channel);
+                    if (userList[user].channels[userChannel].id == message.channel) {
+                        for (scrumStatus in userList[user].channels[userChannel].scrumStatus) {
+                            console.log("userList[user].channels[userChannel].scrumStatus:", userList[user].channels[userChannel].scrumStatus);
+                            console.log("date:", date);
+                            if (userList[user].channels[userChannel].scrumStatus[scrumStatus].id == date) {
+                                console.log("found Match:");
+                                status += userList[user].channels[userChannel].scrumStatus[scrumStatus].text;
+                            }
+                        }
+                    }
+
+                }
+            }
+
+            console.log("Final Status: ", status);
+            bot.api.files.upload({
+                content:((!status)? "No Status for Today" : status),
+                filename: date+"Scrum-Status",
+                channels: message.channel
+            }, function(err,result) {
+                if (err) {
+                    console.log("Error uploading file", err);
+                }
+                else {
+                    console.log("Result:",result);
+                }
+
+            });
+        }
+        
+    });
+}
+
+
+controller.hears(['status', 'state'], 'direct_message,direct_mention,mention', function(bot, message) {
+    var date = Moment().format("YYYYMMDD");
+    getStatusAndUpload(message, date);
+});
 areYouReadyForScrum = function(response, convo) { 
     convo.ask('Its Scrum-time! Are you ready for standup?', [
         {
