@@ -159,7 +159,7 @@ controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', '
                         }
                         
                     });
-                }, CHANNEL_SCRUM_TIMEOUT);
+                }, process.env.CHANNEL_SCRUM_TIMEOUT);
             }
 
         }.bind(this));
@@ -204,7 +204,7 @@ timeOutRepeat = function(response, convo) {
     setTimeout(function() {
         bot.startPrivateConversation(response, areYouReadyForScrum);
         convo.next();
-    }, INDIVIDUAL_SCRUM_TIMEOUT);
+    }, process.env.INDIVIDUAL_SCRUM_TIMEOUT);
 };
 
 askTodayStatus = function(response, convo) {
