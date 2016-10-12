@@ -1,7 +1,7 @@
-// if (!process.env.token) {
-//     console.log('Error: Specify token in environment');
-//     process.exit(1);
-// }
+if (!process.env.SLACK_TOKEN) {
+    console.log('Error: Specify token in environment');
+    process.exit(1);
+}
 
 var Botkit = require('botkit');
 var os = require('os');
@@ -22,24 +22,19 @@ if (process.env.MONGOLAB_URI) {
 
 config.debug = true;
 config.logLevel = 7;
-retry: Infinity;
+config: Infinity;
 
 var controller = Botkit.slackbot(config);
+var bot = controller.spawn({
+    token: process.env.SLACK_TOKEN
+}).startRTM();
 
-var beepboop = BeepBoop.start(controller, { debug: true });
+//var beepboop = BeepBoop.start(controller, { debug: true });
 
 controller.setupWebserver(process.env.PORT, function (err, webserver) {
     controller.createWebhookEndpoints(controller.webserver);
 });
 
-// var controller = Botkit.slackbot({
-//     retry: Infinity,
-//     debug: true
-// });
-
-// var bot = controller.spawn({
-//     token: process.env.token
-// }).startRTM();
 
 controller.hears(['help'], 'direct_message,direct_mention', function (bot, message) {
   bot.reply(message, "I am your Scrum Bot :robot_face:" +
@@ -227,25 +222,25 @@ askIssues = function(response, convo) {
   }, {'key': 'issues'});
 };
 
-beepboop.on('add_resource', function (msg) {
-  console.log('received request to add bot to team')
-});
+// beepboop.on('add_resource', function (msg) {
+//   console.log('received request to add bot to team')
+// });
 
-// Send the user who added the bot to their team a welcome message the first time it's connected
-beepboop.on('botkit.rtm.started', function (bot, resource, meta) {
-  var slackUserId = resource.SlackUserID
+// // Send the user who added the bot to their team a welcome message the first time it's connected
+// beepboop.on('botkit.rtm.started', function (bot, resource, meta) {
+//   var slackUserId = resource.SlackUserID
 
-  if (meta.isNew && slackUserId) {
-    bot.api.im.open({ user: slackUserId }, function (err, response) {
-      if (err) {
-        return console.log("im.open error:",err)
-      }
-      var dmChannel = response.channel.id
-      bot.say({channel: dmChannel, text: 'Thanks for adding me to your team!'})
-      bot.say({channel: dmChannel, text: 'Just /invite me to a channel!'})
-    })
-  }
-});
+//   if (meta.isNew && slackUserId) {
+//     bot.api.im.open({ user: slackUserId }, function (err, response) {
+//       if (err) {
+//         return console.log("im.open error:",err)
+//       }
+//       var dmChannel = response.channel.id
+//       bot.say({channel: dmChannel, text: 'Thanks for adding me to your team!'})
+//       bot.say({channel: dmChannel, text: 'Just /invite me to a channel!'})
+//     })
+//   }
+// });
 
 controller.on('bot_channel_join', function (bot, message) {
     console.log("bot_channel_join")
