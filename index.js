@@ -1,10 +1,12 @@
-/* Uses the slack button feature to offer a real time bot to multiple teams */
+// if (!process.env.token) {
+//     console.log('Error: Specify token in environment');
+//     process.exit(1);
+// }
+
 var Botkit = require('botkit');
-var Https = require('https');
+var os = require('os');
 var Moment = require('moment-timezone');
 var BeepBoop = require('beepboop-botkit');
-var os = require('os');
-
 
 var config = {}
 if (process.env.MONGOLAB_URI) {
@@ -30,97 +32,200 @@ controller.setupWebserver(process.env.PORT, function (err, webserver) {
     controller.createWebhookEndpoints(controller.webserver);
 });
 
+// var controller = Botkit.slackbot({
+//     retry: Infinity,
+//     debug: true
+// });
 
-var help = "I can help you forget the pain around Cats :slightly_smiling_face:" +
-                "\nTry typing `/cats saveCredentials <username> <password>` to save credentials & test login" +
-                "\nTry typing `/cats addTime <date in format YYYYMMDD> <order> <sub-order> <hours> <comment>` to book time" + 
-                "\nTry typing `@cats_bot reminder` to remind everyone in the team to book time";
+// var bot = controller.spawn({
+//     token: process.env.token
+// }).startRTM();
 
-controller.on('slash_command', function (slashCommand, message) {
+controller.hears(['help'], 'direct_message,direct_mention', function (bot, message) {
+  bot.reply(message, "I am your Scrum Bot :robot_face:
+    \nI can start scrum on your command & update the channel with file of statuses from every member who co-operates.
+    \nOnly authorized scrum masters in every channel can start scrum.
+    \nCurrently only <@ojas.gosar> is authorized to start scrum (in order to avoid spam in public channels).
+    \n`coming soon - you can automate the process of scrum`")
+});
 
-    switch (message.command) {
-        case "/cats": 
-            
-            // but first, let's make sure the token matches!
-            if (message.token !== process.env.VERIFICATION_TOKEN) return; //just ignore it.
+controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', 'stand-up'], 'direct_message,direct_mention,mention', function(bot, message) {
+    
+    if (message.user == 'U2K8XK03Z' || message.user == 'U23RT8WQ4') {
+        //var users = [];
+        bot.api.channels.info({
+            channel: message.channel
+        }, function(err, info) {
+            if (err) {
+                bot.botkit.log('Failed to get channel info :(', err);
+                bot.reply(message,"I can't start scrum outside of a channel.
+                    \nIf you havent already invited me to a channel then try `/invite @scrum_bot`
+                    \nThen `@scrum_bot scrum` to start scrum
+                    \nYou can also type `@scrum_bot help` to find out what i can do for you..");
+            }
+            else {
+                var date = Moment().format("YYYYMMDD");
+                bot.reply(message,"Starting Scrum now");
+                for (var i = 0; i < info.channel.members.length; i++) {
+                    console.log(info.channel.members[i]);
+                    bot.api.users.info({
+                        user: info.channel.members[i]
+                    }, function(err, userInfo) {
+                        if(userInfo.user.is_bot == false) {
+                            console.log("user name:" + userInfo.user.name + " user id:" + userInfo.user.id + " is_bot:" + userInfo.user.is_bot);
+                            //users.push(userInfo.user.id);
+                            //console.log("users: " + users);
+                            bot.startPrivateConversation({user: userInfo.user.id}, function(response, convo) {
+                                areYouReadyForScrum(response, convo);
+                                convo.on('end', function(dm) {
+                                    if (dm.status == 'completed') {
 
-            var text = message.text.trim().split(" ");
-            switch (text[0]) {
-                case "help":
-                    slashCommand.replyPrivate(message, help);
-                    break;
+                                        
+                                        controller.storage.users.get(userInfo.user.id, function(err, user) {
+                                            if (!user) {
+                                                user = {
+                                                    id: userInfo.user.id,
+                                                    realName: userInfo.user.name,
+                                                    channels: []
+                                                }
+                                            }
 
-                case "saveCredentials":
-                    if (!text[1] || !text[2]) {
-                        slashCommand.replyPrivate(message, "I'm afraid you cant save credentials without passing 'em");
-                        break;
-                    }
-                    var incomingUserName = text[1];
-                    var incomingPassword = text[2];
-                    var loginSuccess = true;
-                    slashCommand.replyPrivate(message, "Attempting to login", function() {
-                        loginSuccess = performLogin(slashCommand, message, incomingUserName, incomingPassword);
-                    });
+                                            scrum_status = "\nStatus for <@" + user.realName + ">:\n Yesterday: "+dm.extractResponse('yesterday') + "\n Today: " + dm.extractResponse('today') +"\n Issues: " + dm.extractResponse('issues');
 
-                    break;
+                                            user.channels.push({
+                                                id: message.channel,
+                                                scrumStatus: [{
+                                                    id: date,
+                                                    text:scrum_status
+                                                }]
+                                            });
 
-                case "addTime":
-                    var addTimeSuccess = true;
-                    slashCommand.replyPrivate(message, "Attempting to add your hours to cats..", function() {
-                        controller.storage.users.get(message.user, function(err, user) {
-                            if (user && user.userName && user.password) {
-                                var returnStatusCode = performLogin(slashCommand, message, user.userName, user.password);
-                                if (true) {
-                                    var comment = "";
-                                    for (var i = 5; i < text.length; i++) {
-                                        comment += text[i] + " ";
-                                    }
-                                    console.log("Comment:", comment);
-                                    var date = ((text[1] === 'today') ? Moment().format("YYYYMMDD") : text[1]);
-                                    if (!date || !(Moment(date, "YYYYMMDD", true).isValid()) || !text[2] || !text[3] || !text[4] || !comment) {
-                                        slashCommand.replyPrivateDelayed(message, "Please pass data in the form of <date in format YYYYMMDD> <order> <sub-order> <hours> <comment> ");
-                                        addTimeSuccess = false;
-                                        return;
+                                            console.log("User Object: ", user)
+                                            controller.storage.users.save(user, function(err, id) {
+                                                console.log("User:",id);
+                                            });
+                                        })
                                     }
                                     else {
-                                        var incomingDate = date;
-                                        var incomingOrder = text[2];
-                                        var incomingSuborder = text[2] + "-" + text[3];
-                                        var incomingHours = text[4];
-                                        var formattedComment = comment.substring(0,50);
-                                        var postTimeSuccess = true;
-                                        slashCommand.replyPrivateDelayed(message, "Attempting to add your time", function() {
-                                            controller.storage.users.get(message.user, function(err, user) {
-                                                postTimeSuccess = performPostTime(slashCommand, message, incomingDate, incomingOrder, incomingSuborder, incomingHours, formattedComment, user.sid, user.defaultActivity);
-                                            });
+                                        bot.startPrivateConversation(response.user, function(response, convo) { 
+                                            convo.say('OK, this didnt go well, i will report to scrum master to personally look into you!');
                                         });
                                     }
+                                });
+                            });
+                        }
+                    });
+                }
+
+                setTimeout(function() {
+                    controller.storage.users.all(function(err,userList) {
+
+                        if (err) {
+                            console.log("Error getting all users: ", err);
+                        }
+                        else {
+                            console.log("Success all users: ", JSON.stringify(userList));
+                            //var jsonUserList = JSON.stringify(userList);
+                            var status = "";
+                            
+                            for (user in userList) {
+                                console.log("userList[user].channels", userList[user].channels);
+                                for (userChannel in userList[user].channels) {
+                                    console.log("userList[user].channels[userChannel]:", userList[user].channels[userChannel]);
+                                    console.log("message.channel", message.channel);
+                                    if (userList[user].channels[userChannel].id == message.channel) {
+                                        for (scrumStatus in userList[user].channels[userChannel].scrumStatus) {
+                                            console.log("userList[user].channels[userChannel].scrumStatus:", userList[user].channels[userChannel].scrumStatus);
+                                            console.log("date:", date);
+                                            if (userList[user].channels[userChannel].scrumStatus[scrumStatus].id == date) {
+                                                console.log("found Match:");
+                                                status += userList[user].channels[userChannel].scrumStatus[scrumStatus].text;
+                                            }
+                                        }
+                                    }
+
+                                }
+                            }
+
+                            console.log("Final Status: ", status);
+                            bot.api.files.upload({
+                                content:((!status)? "No Status for Today" : status),
+                                filename: date+"Scrum-Status",
+                                channels: message.channel
+                            }, function(err,result) {
+                                if (err) {
+                                    console.log("Error uploading file", err);
                                 }
                                 else {
-                                    slashCommand.replyPrivateDelayed(message, "I do not have your right credentials to login, Try typing `/cats login <username> <password>` to login");
+                                    console.log("Result:",result);
                                 }
-                            }
-                            else {
-                                slashCommand.replyPrivateDelayed(message, "I do not have your credentials to login, Try typing `/cats login <username> <password>` to login");
-                            }
 
-                        });
+                            });
+                        }
+                        
                     });
-                    
+                }, 120000);
+            }
 
-                    break;
-
-                default:
-                    slashCommand.replyPublic(message, "I'm afraid I don't know how to " + message.command + " " + message.text + " yet.");
-            }   
-
-            break;
-        default:
-            slashCommand.replyPublic(message, "I'm afraid I don't know how to " + message.command + " " + message.text + " yet.");
-
+        }.bind(this));
     }
-
+    else {
+        bot.reply(message, 'Sorry <@' + message.user + '>, you are not authorized to spam :wink:');
+    }
 });
+
+areYouReadyForScrum = function(response, convo) { 
+    convo.ask('Its Scrum-time! Are you ready for standup?', [
+        {
+            pattern: bot.utterances.yes,
+            callback: function(response, convo) {
+                convo.say('Great, lets begin..');
+                askYesterdayStatus(response, convo);
+                convo.next();
+            }
+        },
+        {
+            pattern: bot.utterances.no,
+            default: true,
+            callback: function(response, convo) {
+                convo.say('Alright, will ping you in sometime..');
+                timeOutRepeat(response, convo);
+                convo.next();
+            }
+        }
+    ]);
+};
+
+askYesterdayStatus = function(response, convo) {
+    console.log(convo);
+    convo.ask("What did you do yesterday?", function(response, convo) {
+        convo.say("Awesome.");
+        askTodayStatus(response, convo);
+        convo.next();
+  }, {'key': 'yesterday'});
+};
+
+timeOutRepeat = function(response, convo) {
+    setTimeout(function() {
+        bot.startPrivateConversation(response, areYouReadyForScrum);
+        convo.next();
+    }, 3000);
+};
+
+askTodayStatus = function(response, convo) {
+  convo.ask("What do you plan to do today?", function(response, convo) {
+    convo.say("Ok. Sounds Great!")
+    askIssues(response, convo)
+    convo.next();
+  }, {'key': 'today'});
+};
+
+askIssues = function(response, convo) { 
+  convo.ask("Any impediments or blocking issues??", function(response, convo) {
+    convo.say("Ok! Thank you :simple_smile:  ");
+    convo.next();
+  }, {'key': 'issues'});
+};
 
 beepboop.on('add_resource', function (msg) {
   console.log('received request to add bot to team')
@@ -147,55 +252,113 @@ controller.on('bot_channel_join', function (bot, message) {
   bot.reply(message, "I'm here!")
 });
 
-controller.hears(['hello', 'hi'], 'direct_mention', function (bot, message) {
-  bot.reply(message, 'Hello.');
+controller.hears(['hello', 'hi'], 'direct_message,direct_mention,mention', function(bot, message) {
+
+    bot.api.reactions.add({
+        timestamp: message.ts,
+        channel: message.channel,
+        name: 'robot_face',
+    }, function(err, res) {
+        if (err) {
+            bot.botkit.log('Failed to add emoji reaction :(', err);
+        }
+    });
+
+
+    controller.storage.users.get(message.user, function(err, user) {
+        if (user && user.name) {
+            bot.reply(message, 'Hello ' + user.name + '!!');
+        } else {
+            bot.reply(message, 'Hello.');
+        }
+    });
 });
 
-controller.hears(['hello', 'hi'], 'direct_message', function (bot, message) {
-  bot.reply(message, 'Hello.')
-  bot.reply(message, 'It\'s nice to talk to you directly.')
-});
-
-controller.hears('.*', 'mention', function (bot, message) {
-  bot.reply(message, 'You really do care about me. :heart:')
-});
-
-controller.hears(['help'], 'direct_message,direct_mention', function (bot, message) {
-  bot.reply(message, help)
-});
-
-controller.hears(['reminder'], 'direct_message,direct_mention', function (bot, message) {
-    if (message.user == 'U2K8XK03Z' || message.user == 'U23RT8WQ4') {
-        bot.reply(message, "On it..");
-
-        bot.api.users.list({
-
-        }, function(err, list) {
-            if (err) {
-                console.log('Failed to get users list :(', err);
-            }
-            else {
-                console.log('users list :', list);
-                for (var i = 0; i < list.members.length; i++) {
-
-                    if(list.members[i].is_bot == false) {
-                        bot.startPrivateConversation({user: list.members[i].id}, function(err,convo) {
-                            convo.say("Its Cats Time :heart_eyes_cat: !!");
-                            convo.say("Try typing `@cats_bot help` to find out how I can help Catsing.");
-                        });
-                    }
-                }
-            }
-
+controller.hears(['call me (.*)', 'my name is (.*)'], 'direct_message,direct_mention,mention', function(bot, message) {
+    var name = message.match[1];
+    controller.storage.users.get(message.user, function(err, user) {
+        if (!user) {
+            user = {
+                id: message.user,
+            };
+        }
+        user.name = name;
+        controller.storage.users.save(user, function(err, id) {
+            bot.reply(message, 'Got it. I will call you ' + user.name + ' from now on.');
         });
-    }
-    else {
-        bot.reply(message, 'Sorry <@' + message.user + '>, you are not authorized to spam :wink:');
-    }
-
+    });
 });
 
-controller.hears(['identify yourself', 'who are you', 'what is your name'], 'direct_message,direct_mention,mention', function(bot, message) {
+controller.hears(['what is my name', 'who am i'], 'direct_message,direct_mention,mention', function(bot, message) {
+
+    controller.storage.users.get(message.user, function(err, user) {
+        if (user && user.name) {
+            bot.reply(message, 'Your name is ' + user.name);
+        } else {
+            bot.startConversation(message, function(err, convo) {
+                if (!err) {
+                    convo.say('I do not know your name yet!');
+                    convo.ask('What should I call you?', function(response, convo) {
+                        convo.ask('You want me to call you `' + response.text + '`?', [
+                            {
+                                pattern: 'yes',
+                                callback: function(response, convo) {
+                                    // since no further messages are queued after this,
+                                    // the conversation will end naturally with status == 'completed'
+                                    convo.next();
+                                }
+                            },
+                            {
+                                pattern: 'no',
+                                callback: function(response, convo) {
+                                    // stop the conversation. this will cause it to end with status == 'stopped'
+                                    convo.stop();
+                                }
+                            },
+                            {
+                                default: true,
+                                callback: function(response, convo) {
+                                    convo.repeat();
+                                    convo.next();
+                                }
+                            }
+                        ]);
+
+                        convo.next();
+
+                    }, {'key': 'nickname'}); // store the results in a field called nickname
+
+                    convo.on('end', function(convo) {
+                        if (convo.status == 'completed') {
+                            bot.reply(message, 'OK! I will update my dossier...');
+
+                            controller.storage.users.get(message.user, function(err, user) {
+                                if (!user) {
+                                    user = {
+                                        id: message.user,
+                                    };
+                                }
+                                user.name = convo.extractResponse('nickname');
+                                controller.storage.users.save(user, function(err, id) {
+                                    bot.reply(message, 'Got it. I will call you ' + user.name + ' from now on.');
+                                });
+                            });
+
+
+
+                        } else {
+                            // this happens if the conversation ended prematurely for some reason
+                            bot.reply(message, 'OK, nevermind!');
+                        }
+                    });
+                }
+            });
+        }
+    });
+});
+
+controller.hears(['identify yourself', 'who are you', 'what is your name'],
+    'direct_message,direct_mention,mention', function(bot, message) {
 
     var hostname = os.hostname();
     var uptime = formatUptime(process.uptime());
@@ -223,147 +386,4 @@ function formatUptime(uptime) {
 
     uptime = uptime + ' ' + unit;
     return uptime;
-}
-
-function getCurrentTimestamp() {
-    var current = Moment().format("YYYYMMDD HH:mm:ss");
-    var timezoneid = Moment.tz.guess();
-    return current + " " + timezoneid;
-}
-
-function performPostTime(slashCommand, message, incomingDate, incomingOrder, incomingSuborder, incomingHours, formattedComment, incomingSid, incomingDefaultActivity) {
-    var options = {
-        host: 'cats.arvato-systems.de',
-        path: '/gui4cats-webapi/api/times',
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json; charset=utf-8',
-            'Timestamp': getCurrentTimestamp(),
-            'Consumer-Id': 'CATSmobile-client',
-            'Consumer-Key': 'C736938F-02FC-4804-ACFE-00E20E21D198',
-            'Version': '1.0',
-            'Connection': 'keep-alive',
-            'User-Agent': 'Mozilla/5.0',
-            'x-fallback-origin': 'https://mobilecats.arvato-systems.de',
-            'Cache-Control': 'no-cache',
-            'Accept-Language': 'en',
-            'sid': incomingSid
-            }
-    };
-
-    console.log("Start Add time POST Request");
-
-    var req = Https.request(options, function(res) {
-        res.on('data',function(data){
-            var jsonData = JSON.parse(data);
-            console.log("JsonData:", jsonData);
-            httpstatus = jsonData.httpstatus;
-            switch (httpstatus) {
-                case 201:
-                    slashCommand.replyPrivateDelayed(message, "Cats entry was successful..");
-                    break;
-
-                case 400:
-                    slashCommand.replyPrivateDelayed(message, jsonData.details);
-                    break;
-
-                default:
-                    console.log("HttpsStatus:", httpstatus);
-
-            }
-        });
-    });
-    req.on('error', (e) => {
-        console.error("Error:", e);
-        slashCommand.replyPrivateDelayed(message, "something went wrong :(");
-        return false;;
-    });
-
-    req.write('{"date":"'+incomingDate+'","workingHours":"'+incomingHours+'","comment":"'+formattedComment+'","orderid":"'+incomingOrder+'","suborderid":"'+incomingSuborder+'","activityid":"'+incomingDefaultActivity+'"}');
-    req.end();
-
-}
-
-function performLogin(slashCommand, message, incomingUserName, incomingPassword) {
-    var httpstatus = null;
-    var sid = null;
-    var firstName = null;
-    var lastName = null;
-    var defaultActivity = null;
-    var options = {
-        host: 'cats.arvato-systems.de',
-        path: '/gui4cats-webapi/api/users',
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json; charset=utf-8',
-            'User': incomingUserName,
-            'Password': incomingPassword,
-            'Timestamp': getCurrentTimestamp(),
-            'Consumer-Id': 'CATSmobile-client',
-            'Consumer-Key': 'C736938F-02FC-4804-ACFE-00E20E21D198',
-            'Version': '1.0',
-            'Connection': 'keep-alive',
-            'User-Agent': 'Mozilla/5.0',
-            'x-fallback-origin': 'https://mobilecats.arvato-systems.de',
-            'Cache-Control': 'no-cache',
-            'Accept-Language': 'en'
-        }
-    };
-
-    console.log("Start Login get Request");
-    var req = Https.request(options, function(res) {
-        res.on('data',function(data){
-            var jsonData = JSON.parse(data);
-            console.log("JsonData:", jsonData);
-            httpstatus = jsonData.httpstatus;
-            switch (httpstatus) {
-                case 200 :
-                    sid = jsonData.meta.sid;
-                    lastName = jsonData.name;
-                    firstName = jsonData.prename;
-                    defaultActivity = jsonData.defaultActivity;
-                    if (!defaultActivity) {
-                        slashCommand.replyPrivateDelayed(message, "You do not have defaultActivity set, please contact Cats Admin.");
-                    };
-                    controller.storage.users.get(message.user, function(err, user) {
-
-                        if (!user) {
-                            user = {
-                                id: message.user
-                            }
-                        }
-
-                        user.userName = incomingUserName;
-                        user.password = incomingPassword;
-                        user.firstName = firstName;
-                        user.lastName = lastName;
-                        user.sid = sid;
-                        user.defaultActivity = defaultActivity;
-
-                        controller.storage.users.save(user);
-
-                    });
-
-                    slashCommand.replyPrivateDelayed(message, firstName + " " + lastName + " you have successfully logged-in");
-                    break;
-
-                case 401 :
-                    slashCommand.replyPrivateDelayed(message, jsonData.message);
-                    break;
-
-                default:
-                    console.log("HttpsStatus:", httpstatus);
-                    slashCommand.replyPrivateDelayed(message, "could not login for some reason = " + jsonData.message);
-
-            }
-            return httpstatus;
-        });
-    });
-    req.on('error', (e) => {
-        console.error("Error:", e);
-        slashCommand.replyPrivateDelayed(message, "something went wrong :(");
-    });
-    req.end();
 }

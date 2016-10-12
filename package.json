@@ -1,7 +1,7 @@
 {
   "name": "scrum-app",
   "version": "1.0.0",
-  "description": "I can make scrum master & developers time more productive",
+  "description": "I can make scrum master's & developers time more productive",
   "main": "index.js",
   "scripts": {
     "start": "node index",
