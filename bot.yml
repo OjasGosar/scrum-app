@@ -1,0 +1,23 @@
+name: Scrum App for BeepBoop
+description: A Scrum App that collects status interactively without requiring the whole team to be present.
+avatar: resources/avatar.png
+config:
+# - name: CLIENT_ID
+#   friendly_name: Client ID
+#   info: Client ID for Slack App
+#   type: text
+#   global: true
+# - name: CLIENT_SECRET
+#   friendly_name: Client Secret
+#   info: Client Secret for Slack App
+#   type: secret
+#   global: true
+- name: VERIFICATION_TOKEN
+  friendly_name: Verification Token
+  info: verification token for Slack App
+  type: secret
+  global: true
+slackscopes:
+  - bot
+  - commands
+  - incoming-webhook
