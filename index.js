@@ -45,7 +45,7 @@ controller.hears(['help'], 'direct_message,direct_mention', function (bot, messa
   bot.reply(message, "I am your Scrum Bot :robot_face:" +
     "\nI can start scrum on your command & update the channel with file of statuses from every member who co-operates." +
     "\nOnly authorized scrum masters in every channel can start scrum." +
-    "\nCurrently only <@ojas.gosar> is authorized to start scrum (in order to avoid spam in public channels)." +
+    "\nCurrently only @ojas.gosar is authorized to start scrum (in order to avoid spam in public channels)." +
     "\n`coming soon - you can automate the process of scrum`");
 });
 
@@ -90,7 +90,7 @@ controller.hears(['scrum', 'start scrum', 'scrum time', 'standup', 'stand up', '
                                                 }
                                             }
 
-                                            scrum_status = "\nStatus for <@" + user.realName + ">:\n Yesterday: "+dm.extractResponse('yesterday') + "\n Today: " + dm.extractResponse('today') +"\n Issues: " + dm.extractResponse('issues');
+                                            scrum_status = "\nStatus for @" + user.realName + ":\n Yesterday: "+dm.extractResponse('yesterday') + "\n Today: " + dm.extractResponse('today') +"\n Issues: " + dm.extractResponse('issues');
 
                                             user.channels.push({
                                                 id: message.channel,
