@@ -37,7 +37,7 @@ controller.setupWebserver(process.env.PORT, function (err, webserver) {
 
 
 controller.hears(['help'], 'direct_message,direct_mention', function (bot, message) {
-  bot.reply(message, "I am your Scrum Bot :robot_face:" +
+  bot.reply(message, "I am your Scrum Bot :scrum_bot:" +
     "\nI can start scrum on your command & update the channel by uploading a file of statuses from every member who co-operates." +
     "\nOnly authorized scrum masters in every channel can start scrum." +
     "\nCurrently only @ojas.gosar is authorized to start scrum (in order to avoid spam in public channels)." +
